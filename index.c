@@ -26,12 +26,10 @@ pthread_mutex_t mutex, shields_lock, shots_lock, aliens_lock, bombs_lock,
     boss_lock;
 
 int ship, health = 5; // Variable globale pour stocker la position du vaisseau
-
 void init_ship()
 {
   ship = floor((COLS - 2) / 2); // Initialiser la position du vaisseau
 }
-
 void print_ship()
 {
   // Afficher le vaisseau à l'écran
@@ -55,7 +53,6 @@ void init_bombs()
     bombs[i] = (int *)calloc(COLS, sizeof(int));
   }
 }
-
 void print_bombs()
 {
   // Afficher les bombes à l'écran*
@@ -84,7 +81,6 @@ void init_shots()
     shots[i] = (int *)calloc(COLS, sizeof(int));
   }
 }
-
 void print_shots()
 {
   // Afficher les tirs à l'écran
@@ -130,7 +126,6 @@ int init_shields(int count, int width)
     }
   }
 }
-
 void print_shields()
 {
   // Afficher les boucliers à l'écran
@@ -157,27 +152,30 @@ char *frames_data, *boss_frame;
 int frames_count, frames_height = 0, frames_width = 0;
 
 // path est le chemin du fichier aliens.txt
-
 void init_aliens(char *path)
 {
   // Ouvrir le fichier aliens.txt
   FILE *file = fopen(path, "r"); // w : write r : read
   if (file == NULL)
   {
-    fprintf(stderr, "Error opening file: %s\n", path);
+    fprintf(stderr, "Erreur pendant l'ouverture du fichier: %s\n", path);
     exit(1);
   }
 
-  // Count the number of frames
+  // Compter le nombre des frames depuis le fichier aliens.txt, commencer avec frames_count = 1
   frames_count = 1;
   char c;
   int length = 0;
   int height = 0;
-  // 0
 
-  while ((c = fgetc(file)) != EOF)
+  // utiliser deux variables pour garder trace si on est arrivé à la fin d'une frame
+  // height pour compter la hauteur maximale d'une frame, chaque saut de ligne \n la variable sera incrémentée de 1
+  // length pour compter la largeur d'une ligne depuis le fichier aliens.txt, elle sera incrémentée de 1 après chaque caractere lu
+  // length sera réinitialisé chaque fois qu'on se recontre avec un saut de ligne pour indiquer la fin d'une ligne
+  // dans le cas ou length est réinitialisé à zéro et le prochain caractère est de meme un saut de ligne alors on est dans une ligne vide et on est arrivé à la fin d'une frame
+  while ((c = fgetc(file)) != EOF) // EOF = End of File fin de fichier
   {
-    // if line is empty then increment frames_count
+    // Si la ligne est vide alors incrémenter le nombre des frames
     if (c == '\n')
     {
       if (length == 0)
@@ -191,6 +189,7 @@ void init_aliens(char *path)
     else
     {
       length++;
+      // si length est supérieur à la valeur de frames_width alors frames_width reçoit la nouvelle valeur
       if (length > frames_width)
       {
         frames_width = length;
@@ -199,40 +198,41 @@ void init_aliens(char *path)
   }
   frames_height = height;
 
-  // frames_height = 3, frames_width=6, frames_count = 2
-  // revenir au premier caractere du fichier
+  // à la fin du parcour du fichier frames_width aura la largeur maximum des frames qui représentent l'alien
+  // et frames_height aura la hauteur maximum des frames
+
+  // revenir au premier caractere du fichier pour remplir deux variables
+  // la variable frames_data qui consistera d'un tableau de caractères ou d'une chaine de caractères qui contiendra tous le caractères du fichier txt aliens.txt sans les sauts de ligne
+  // la variable frames sera un tableau de lignes chaque ligne pointera au début d'une frame, donc on pourra imaginer un tableau qui contiendra deux chaines de caractères
   rewind(file);
 
-  // frames_data needs to be a string
+  // Le nombre de caractères que contiendra frames_data est le nombre de frames qu'on à compté auparavant fois la largeur maximum du frame fois la hauteur maximum du frame
   frames_data =
       malloc(frames_count * frames_width * frames_height * sizeof(char));
 
   frames = malloc(frames_count * sizeof(char *));
 
-  // Read frames from the file
+  // Utiliser 3 variables pour lire le fichier de tel façon à déterminer le début de chaque ligne et des frames
   int k = 0;
   int i, j;
 
+  // La variable i sera utilisée pour garder trace dans quelle frame on est malgré que la détermination de quelle frame il s'agit n'est pas aussi facile que ça
   for (i = 0; i < frames_count; i++)
   {
-    // i = 1
+    // frames[i] signifie que la ligne i dans le tableau frames pointera vers la suite de caractères dans le mémoire centrale qui consistera d'une frame
     frames[i] = &frames_data[k];
-    // frames[0] = &frames_data[0]
-    // frames[0][17]
 
-    // frames[1] = &frames_data[18+3]
-    // frames[1][2]
+    // restart loop est utilisée pour réinistiliser manuellement la boucle de j à 0 pour lire une autre ligne dans la frame i
   restart_loop:
     length = 0;
+    // La variable j sera utilisée pour lire les lignes depuis le fichier txt aliens.txt
     for (j = 0; j < frames_width + 1; j++)
     {
-      // 0
       c = fgetc(file);
       if (c != '\n')
       {
         length++;
         frames_data[k] = c;
-        // k=17
         k++;
       }
       else if (c == '\n')
@@ -243,7 +243,6 @@ void init_aliens(char *path)
         }
         else
         {
-          // 17%18 = 17
           while (k % (frames_width * frames_height) != 0)
           {
             frames_data[k] = '0';
@@ -259,19 +258,23 @@ void init_aliens(char *path)
     }
   }
 
-  // Close the file
+  // Fermer le fichier
   fclose(file);
 
-  // Initialize aliens array
+  // Initialiser le tableau des aliens avec un nombre de 12 aliens
   aliens_count = 12;
   int row = 0;
   int col = 0;
 
-  // evenly space between aliens
+  // Calculer l'espace entre les aliens
   int space = floor((COLS - 6 - (aliens_count / 2) * frames_width) /
                     (aliens_count / 2));
 
-  // allouer de l'espace de mémoire pour le tableau des aliens
+  // allouer de l'espace de mémoire pour le tableau des aliens telle que on aura un tableau de 2 dimensions
+  // il sera fait de 12 lignes pour identifier chaque alien par lui mème et chaque ligne aura 3 collones
+  // la 1ère pour indiquer la ligne dans le quel l'alien se situe soit la cordonnée y de l'alien dans l'écran à savoir que ça concernne le carreau à gauche en haut de l'alien
+  // la 2ème pour indiquer la collonne dans la quelle l'alien se situe soit la cordonnée x de l'alien dans l'écran
+  // la 3ème pour iniquer quelle frame utiliser pour animer l'alien
   aliens = malloc(aliens_count * sizeof(int *));
   for (i = 0; i < aliens_count; i++)
   {
@@ -281,8 +284,6 @@ void init_aliens(char *path)
     aliens[i][1] = col;              // Position intiale de colonnes
     aliens[i][2] = i % frames_count; // Frame de l'alien choisir entre deux
     col = col + frames_width + space;
-    // 0 11
-    // 0-5 6-11
 
     if (i == floor(aliens_count / 2) - 1)
     {
@@ -291,10 +292,8 @@ void init_aliens(char *path)
     }
   }
 }
-
 void print_alien_frame(int frame, int row, int col)
 {
-  // frames = 0
   for (int i = 0; i < frames_height; i++)
   {
     move(row + i, col);
@@ -303,7 +302,7 @@ void print_alien_frame(int frame, int row, int col)
       char c = frames[frame][i * frames_width + j];
       if (c == '#')
       {
-        // Afficher un carré
+        // Afficher un carré coloré avec la couleure des aliens
         attron(COLOR_ALIENS);
         addch(ACS_BLOCK);
       }
@@ -328,7 +327,7 @@ void print_aliens()
   }
 }
 
-init_boss(char *path)
+void init_boss(char *path)
 {
 
   // Open the file containing the frames
@@ -501,7 +500,7 @@ void *shots_thread(void *arg)
     pthread_mutex_lock(&shots_lock);
     if (running)
     {
-      for (int i = 0; i < LINES - 1; i++)
+      for (int i = 1; i < LINES - 1; i++)
       {
         for (int j = 0; j < COLS; j++)
         {
